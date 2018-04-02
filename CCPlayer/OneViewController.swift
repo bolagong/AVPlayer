@@ -16,8 +16,8 @@ class OneViewController: UIViewController {
         super.viewDidLoad()
         self.view.backgroundColor = UIColor.defaultBackgroundColor
         
-        //设置plist文件，不然请求不到 http
-        let url = "http://pgccdn.v.baidu.com/1389178559_958649323_20171022012537.mp4?authorization=bce-auth-v1%2Fc308a72e7b874edd9115e4614e1d62f6%2F2017-10-21T17%3A25%3A40Z%2F-1%2F%2F0949a7ae1d91d8790fc0f7445adbf67dbe0f2b276b61aaacf3a9b3212aa9f557&responseCacheControl=max-age%3D8640000&responseExpires=Tue%2C+30+Jan+2018+01%3A25%3A40+GMT&xcode=3507ae025d676e53692c9296264ed660826bde1385195bc1"
+        //设置plist文件的网络连接，不然请求不到 http
+        let url = "http://120.25.226.186:32812/resources/videos/minion_02.mp4"
         
         playView = CWPlayer.init(frame: CGRect.init(x: 0, y: 100, width: MAINSCREEN_WIDTH, height: 200))
         playView.contrainerVC = self

@@ -101,9 +101,9 @@ class CWPlayer: UIView {
         toolView.frame = CGRect.init(x: 0, y: self.height-50, width: self.width, height: 50)
         playOrPauseBtn.frame = CGRect.init(x: 0, y: 0, width: 50, height: 50)
         fullScreen.frame = CGRect.init(x: toolView.width-50, y: 0, width: 50, height: 50)
-        progressSlider.frame  = CGRect.init(x: 0, y: -10, width: self.width, height: 20)
         timeLabel.frame = CGRect.init(x: playOrPauseBtn.right, y: 0, width: 56, height: toolView.height)
-        allTimeLabel.frame = CGRect.init(x: timeLabel.right+5, y: timeLabel.top, width: timeLabel.width, height: timeLabel.height)
+        allTimeLabel.frame = CGRect.init(x: toolView.width-fullScreen.width-timeLabel.width, y: timeLabel.top, width: timeLabel.width, height: timeLabel.height)
+        progressSlider.frame  = CGRect.init(x: timeLabel.right, y: (toolView.height-20)/2, width: toolView.width-timeLabel.right-allTimeLabel.width-fullScreen.width, height: 20)
         playOrPauseBigBtn.bounds = CGRect.init(x: 0, y: 0, width: 50, height: 50)
         playOrPauseBigBtn.center = bgImageView.center
         coverView.frame = CGRect.init(x: 0, y: 0, width: self.width, height: self.height)
@@ -166,6 +166,13 @@ class CWPlayer: UIView {
             })
         }else{
             self.fullVC.dismiss(animated: false, completion: {
+                /**
+                 切记：contrainerVC是播放器所在的父视图，
+                 如果播放器是添加在父视图中的某一个view中，
+                 辣么这里需要再添加到contrainerVC里面的那个view中去。
+                 */
+                
+                
                 self.contrainerVC.view.addSubview(self)
                 UIView.animate(withDuration: 0.15, delay: 0.0, options: .layoutSubviews, animations: {
                     self.frame = self.originalRect
@@ -211,7 +218,7 @@ extension CWPlayer {
     func viewLayout() {
         bgImageView = UIImageView.init(frame: CGRect.init(x: 0, y: 0, width: self.width, height: self.height))
         bgImageView.backgroundColor = UIColor.gray
-        //bgImageView.image = UIImage.init(named: "") //这里可以自己自定义一张背景图
+        //bgImageView.image = UIImage.init(named: "") //这里可以自己定义一张背景图
         bgImageView.isUserInteractionEnabled = true
         self.addSubview(bgImageView)
         
@@ -240,7 +247,20 @@ extension CWPlayer {
         fullScreen.addTarget(self, action: #selector(fullViewBtnClick(sender:)), for: .touchUpInside)
         toolView.addSubview(fullScreen)
         
-        progressSlider = UISlider.init(frame: CGRect.init(x: 0, y: -10, width: self.width, height: 20))
+        timeLabel = UILabel.init(frame: CGRect.init(x: playOrPauseBtn.right, y: 0, width: 56, height: toolView.height))
+        timeLabel.font = UIFont.systemFont(ofSize: 14)
+        timeLabel.textColor = UIColor.white
+        timeLabel.text = "00:00"
+        toolView.addSubview(timeLabel)
+        
+        allTimeLabel = UILabel.init(frame: CGRect.init(x: toolView.width-fullScreen.width-timeLabel.width, y: timeLabel.top, width: timeLabel.width, height: timeLabel.height))
+        allTimeLabel.font = UIFont.systemFont(ofSize: 14)
+        allTimeLabel.textColor = UIColor.gray
+        allTimeLabel.textAlignment = .right
+        allTimeLabel.text = "00:00"
+        toolView.addSubview(allTimeLabel)
+        
+        progressSlider = UISlider.init(frame: CGRect.init(x: timeLabel.right, y: (toolView.height-20)/2, width: toolView.width-timeLabel.right-allTimeLabel.width-fullScreen.width, height: 20))
         progressSlider.setThumbImage(UIImage.init(named: "icon_thumbImage"), for: .normal)
         //设置滑块未划过部分的线条图案
         progressSlider.setMaximumTrackImage(UIImage.init(named: "icon_MaximumTrackImage"), for: .normal)
@@ -250,18 +270,6 @@ extension CWPlayer {
         progressSlider.addTarget(self, action: #selector(valueChangedSlider(sender:)), for: .valueChanged)
         progressSlider.addTarget(self, action: #selector(touchUpInside(sender:)), for: .touchUpInside)
         toolView.addSubview(progressSlider)
-        
-        timeLabel = UILabel.init(frame: CGRect.init(x: playOrPauseBtn.right, y: 0, width: 56, height: toolView.height))
-        timeLabel.font = UIFont.systemFont(ofSize: 14)
-        timeLabel.textColor = UIColor.white
-        timeLabel.text = "00:00"
-        toolView.addSubview(timeLabel)
-        
-        allTimeLabel = UILabel.init(frame: CGRect.init(x: timeLabel.right+5, y: timeLabel.top, width: timeLabel.width, height: timeLabel.height))
-        allTimeLabel.font = UIFont.systemFont(ofSize: 14)
-        allTimeLabel.textColor = UIColor.gray
-        allTimeLabel.text = "00:00"
-        toolView.addSubview(allTimeLabel)
         
         playOrPauseBigBtn = UIButton.init(type: .custom)
         playOrPauseBigBtn.bounds = CGRect.init(x: 0, y: 0, width: 50, height: 50)
