@@ -16,7 +16,7 @@ class OneViewController: UIViewController {
         super.viewDidLoad()
         self.view.backgroundColor = UIColor.defaultBackgroundColor
         
-        //设置plist文件的网络连接，不然请求不到 http
+        //记得设置plist文件的网络连接，不然请求不到 http哦
         let url = "http://120.25.226.186:32812/resources/videos/minion_02.mp4"
         
         playView = CWPlayer.init(frame: CGRect.init(x: 0, y: 100, width: MAINSCREEN_WIDTH, height: 200))
