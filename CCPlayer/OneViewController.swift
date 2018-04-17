@@ -17,7 +17,8 @@ class OneViewController: UIViewController {
         self.view.backgroundColor = UIColor.defaultBackgroundColor
         
         //记得设置plist文件的网络连接，不然请求不到 http哦
-        let url = "http://120.25.226.186:32812/resources/videos/minion_02.mp4"
+//        let url = "http://120.25.226.186:32812/resources/videos/minion_02.mp4"
+        let url = "http://zxspxz.mojing.cn/meizivideo/170930/fcd33a041794dac8d6ac1dc619424c09.mp4"
         
         playView = CWPlayer.init(frame: CGRect.init(x: 0, y: 100, width: MAINSCREEN_WIDTH, height: 200))
         playView.contrainerVC = self

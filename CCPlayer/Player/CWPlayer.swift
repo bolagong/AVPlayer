@@ -53,11 +53,17 @@ class CWPlayer: UIView {
     /** 重播按钮 */
     var replayBtn : UIButton!
     
+    /** 加载 */
+    var indicatorView : UIActivityIndicatorView!
+    
     /* 包含在哪一个控制器中 */
     var contrainerVC : UIViewController!
     
     /* 记录原始屏幕坐标 */
     var originalRect : CGRect!
+    
+    /** 添加toolView显示计时，5s后隐藏toolView */
+    var showTime : Timer?
     
     /** 全屏播放控制器～～懒加载 */
     lazy var fullVC : CCPlayerFullVC =  {
@@ -68,15 +74,9 @@ class CWPlayer: UIView {
     /** slider定时器添加 */
     lazy var progressTimer : Timer! = {
         let aTimer = Timer.init(timeInterval: 1.0, target: self, selector: #selector(updateProgressInfo), userInfo: nil, repeats: true)
+        aTimer.fireDate = Date.distantFuture //初始先暂停timer
         RunLoop.main.add(aTimer, forMode: .commonModes)
         return aTimer
-    }()
-    
-    /** toolView显示计时，5s后隐藏toolView */
-    lazy var showTime : Timer! = {
-        let aTime = Timer.scheduledTimer(timeInterval: 5.0, target: self, selector: #selector(upDateToolView), userInfo: nil, repeats: false)
-        RunLoop.main.add(aTime, forMode: .commonModes)
-        return aTime
     }()
     
     override init(frame: CGRect) {
@@ -95,7 +95,7 @@ class CWPlayer: UIView {
     
     override func layoutSubviews() {
         super.layoutSubviews()
-        //刷新布局 防止横竖屏
+        //刷新横竖屏布局
         bgImageView.frame = self.bounds
         playerLayer.frame = bgImageView.bounds
         toolView.frame = CGRect.init(x: 0, y: self.height-50, width: self.width, height: 50)
@@ -115,6 +115,36 @@ class CWPlayer: UIView {
     func urlString(url: NSString) {
         let nUrl = NSURL.init(string: url as String)
         playerItem = AVPlayerItem.init(url: nUrl! as URL)
+        playerItem.addObserver(self, forKeyPath: "status", options: .new, context: nil)
+        //playerItem.addObserver(self, forKeyPath: "loadedTimeRanges", options: .new, context: nil)
+    }
+    
+    /** 监听播放状态 */
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        let playerItem = object as! AVPlayerItem
+        if keyPath == "loadedTimeRanges" {
+            //"loaded time ranges"
+        }else if keyPath == "status" {
+            if playerItem.status == .readyToPlay {
+                indicatorView.stopAnimating()
+            }else{
+                //indicatorView.stopAnimating()
+            }
+        }
+    }
+    
+    /** toolView隐藏和显示 */
+    func isShowBottomToolView(isShow: Bool) {
+        UIView.animate(withDuration: 0.5) {
+            self.toolView.alpha = (isShow == true) ? 1 : 0
+        }
+        isShowToolView = isShow
+        
+        if isShowToolView == true {
+            self.addShowTimer()  // 添加timer
+        }else{
+            self.removeShowTime() //移除timer
+        }
     }
     
     /** 将toolView隐藏 */
@@ -130,17 +160,17 @@ class CWPlayer: UIView {
         //视频当前的播放进度
         let currentTime = CMTimeGetSeconds(player.currentTime())
         //视频的总长度
-        let durationTime = CMTimeGetSeconds((player.currentItem?.duration)!)
+        let durationTime = CMTimeGetSeconds(player.currentItem!.duration)
         timeLabel.text = self.timeToStringWithTimeInterval(interval: currentTime) as String
         allTimeLabel.text = self.timeToStringWithTimeInterval(interval: durationTime) as String
         
-        let sec = CMTimeGetSeconds(player.currentTime())
-        let duSec = CMTimeGetSeconds(player.currentItem!.duration)
-        progressSlider.value = Float(sec / duSec)
+        progressSlider.value = Float(currentTime / durationTime)
         
         if progressSlider.value == 1 {
             progressTimer.fireDate = Date.distantFuture //暂停timer
-            coverView.isHidden = false
+            self.removeShowTime() //移除timer
+            UIView.animate(withDuration: 0.5) { self.toolView.alpha = 1 } //播放完展示出来，按需求自己设置显示
+            coverView.isHidden = false //播放完遮盖板展示出来，按需求显示
             print("播放完了")
         }
     }
@@ -166,14 +196,17 @@ class CWPlayer: UIView {
             })
         }else{
             self.fullVC.dismiss(animated: false, completion: {
+                
                 /**
                  切记：contrainerVC是播放器所在的父视图，
                  如果播放器是添加在父视图中的某一个view中，
                  辣么这里需要再添加到contrainerVC里面的那个view中去。
+                 
+                 把： self.contrainerVC.view.addSubview(self)
+                 改成： 父视图View.addSubview(self)
                  */
-                
-                
                 self.contrainerVC.view.addSubview(self)
+                
                 UIView.animate(withDuration: 0.15, delay: 0.0, options: .layoutSubviews, animations: {
                     self.frame = self.originalRect
                 }, completion: nil)
@@ -181,18 +214,19 @@ class CWPlayer: UIView {
         }
     }
     
-    /** 移除和销毁播放器 */
-    func playerDealloc() {
+    /** 添加toolView显示计时，5s后隐藏toolView */
+    func addShowTimer() {
         self.removeShowTime()
-        self.removeProgressTimer()
-        player.pause()
-        playerLayer.removeFromSuperlayer()
-        self.removeFromSuperview()
+        showTime = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false, block: {
+            [weak self] (timer) in
+            self?.upDateToolView()
+        })
+        RunLoop.main.add(showTime!, forMode: .commonModes)
     }
-    
+
     /** 移除showTime定时器 */
     func removeShowTime() {
-        showTime.fireDate = Date.distantFuture //暂停timer
+        showTime?.fireDate = Date.distantFuture //暂停timer
         //销毁定时器
         guard let aTimer = self.showTime
             else{ return }
@@ -208,6 +242,16 @@ class CWPlayer: UIView {
         aTimer.invalidate()
     }
     
+    /** 移除和销毁播放器 */
+    func playerDealloc() {
+        playerItem.removeObserver(self, forKeyPath: "status")
+        //playerItem.removeObserver(self, forKeyPath: "loadedTimeRanges")
+        self.removeShowTime()
+        self.removeProgressTimer()
+        player.pause()
+        playerLayer.removeFromSuperlayer()
+        self.removeFromSuperview()
+    }
 }
 
 
@@ -268,7 +312,7 @@ extension CWPlayer {
         progressSlider.setMinimumTrackImage(UIImage.init(named: "icon_MinimumTrackImage"), for: .normal)
         progressSlider.addTarget(self, action: #selector(touchDownSlider(sender:)), for: .touchDown)
         progressSlider.addTarget(self, action: #selector(valueChangedSlider(sender:)), for: .valueChanged)
-        progressSlider.addTarget(self, action: #selector(touchUpInside(sender:)), for: .touchUpInside)
+        progressSlider.addTarget(self, action: #selector(sliderTouchUpInside(sender:)), for: .touchUpInside)
         toolView.addSubview(progressSlider)
         
         playOrPauseBigBtn = UIButton.init(type: .custom)
@@ -294,6 +338,12 @@ extension CWPlayer {
         replayBtn.layer.masksToBounds = true
         replayBtn.addTarget(self, action: #selector(repeatBtnClick(sender:)), for: .touchUpInside)
         coverView.addSubview(replayBtn)
+        
+        indicatorView = UIActivityIndicatorView.init(activityIndicatorStyle: .whiteLarge)
+        indicatorView.bounds = replayBtn.bounds
+        indicatorView.center = replayBtn.center
+        indicatorView.hidesWhenStopped = true
+        self.addSubview(indicatorView)
     }
     
     func initPlayerConfig() {
@@ -326,35 +376,20 @@ extension CWPlayer {
             self.playOrPauseBigBtnClick(sender: playOrPauseBigBtn)
             return;
         }
-        
         isShowToolView = !isShowToolView
-        
-        if isShowToolView == true {
-            UIView.animate(withDuration: 0.5, animations: {
-                self.toolView.alpha = 1
-            })
-            if playOrPauseBtn.isSelected == true {
-                showTime.fireDate = Date.distantPast // 启动timer
-            }
-        }else{
-            showTime.fireDate = Date.distantFuture //暂停timer
-            UIView.animate(withDuration: 0.5, animations: {
-                self.toolView.alpha = 0
-            })
-        }
+        self.isShowBottomToolView(isShow: isShowToolView)
     }
     
     /** toolView上暂停按钮的点击事件 */
     @objc func playOrPauseBtnClick(sender: UIButton) {
         // 播放状态按钮selected为true,暂停状态selected为false
         sender.isSelected = !sender.isSelected
+        
+        self.addShowTimer()
         if sender.isSelected == false {
-            self.toolView.alpha = 1
-            showTime.fireDate = Date.distantFuture //暂停timer
             player.pause()
             progressTimer.fireDate = Date.distantFuture //暂停timer
         }else{
-            showTime.fireDate = Date.distantPast // 启动timer
             player.play()
             progressTimer.fireDate = Date.distantPast // 启动timer
         }
@@ -368,9 +403,9 @@ extension CWPlayer {
     
     /** slider拖动和点击事件 */
     @objc func touchDownSlider(sender: UISlider) {
-        // 按下去 移除监听器
+        indicatorView.startAnimating()
         progressTimer.fireDate = Date.distantFuture //暂停timer
-        showTime.fireDate = Date.distantFuture //暂停timer
+        self.removeShowTime()
     }
     
     @objc func valueChangedSlider(sender: UISlider) {
@@ -379,13 +414,16 @@ extension CWPlayer {
         timeLabel.text = self.timeToStringWithTimeInterval(interval: currentTime) as String
     }
     
-    @objc func touchUpInside(sender: UISlider) {
+    @objc func sliderTouchUpInside(sender: UISlider) {
         progressTimer.fireDate = Date.distantPast // 启动timer
         //计算当前slider拖动对应的播放时间
         let currentTime = CMTimeGetSeconds((player.currentItem?.duration)!) * Double(sender.value)
         // 播放移动到当前播放时间
-        self.player.seek(to: CMTimeMakeWithSeconds(currentTime, Int32(NSEC_PER_SEC)), toleranceBefore: kCMTimeZero, toleranceAfter: kCMTimeZero)
-        showTime.fireDate = Date.distantPast // 启动timer
+        self.player.seek(to: CMTimeMakeWithSeconds(currentTime, Int32(NSEC_PER_SEC)), toleranceBefore: kCMTimeZero, toleranceAfter: kCMTimeZero) {
+            [weak self] (isFinish) in
+            self?.indicatorView.stopAnimating()
+        }
+        self.addShowTimer()   //添加timer
     }
     
     /** 中间播放按钮点击 */
@@ -395,13 +433,14 @@ extension CWPlayer {
         // 替换界面
         player.replaceCurrentItem(with: playerItem)
         player.play()
+        indicatorView.startAnimating()
         progressTimer.fireDate = Date.distantPast // 启动timer
     }
     
     /** 重播按钮点击 */
     @objc func repeatBtnClick(sender: UIButton) {
         progressSlider.value = 0
-        self.touchUpInside(sender: progressSlider)
+        self.sliderTouchUpInside(sender: progressSlider)
         coverView.isHidden = true
         self.playOrPauseBigBtnClick(sender: playOrPauseBigBtn)
     }
